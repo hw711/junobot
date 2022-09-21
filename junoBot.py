@@ -117,7 +117,10 @@ class JunoBot():
             time.sleep(5)
             page += 1
 
-    #download sales listings from Loop market graphGL API
+    # Downloads sales listings from Loop market graphGL API.  This only updates previously downloaded listings if there is a price update.
+    # It doesn't remove delisted items from database.  If you want to keep on getting fresh snapshot of current listings for a GUI,
+    # you should have to wipe the table before each run.  But for a telegram alert system, it would keep on sending the same listings
+    # if I keep on wipe the table. If I have more time to work on this, I would come up with a way to flag/record listings I already sent.
     def getListings(self,collection):
         conn = pyodbc.connect(self.connstr)
         cur = conn.cursor()
@@ -183,7 +186,8 @@ class JunoBot():
                 self.logger.debug(toSend)
                 if ((collection=='egg' and sl/price>0.5 and price<500) or (collection=='rider' and price<10) or
                     (type in ('Faction Talisman', 'Personal Dragon Atlas') and role=='Member' and price<10)
-                    or (type=='Meteor Dust' and sl/price>1.5) or (price<5)):
+                    or (type=='Meteor Dust' and sl/price>1.5) or (price<5) or (collection=='rider' and suit in
+                    ('Hunter','Exoskeleton','Command','Advisor','Rangers'))):
                     self.sendTelegram(toSend)
 
     # download levana nft metadata from Loop market graphGL API.  Probably not necessary if you already have all that in your database
