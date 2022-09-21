@@ -14,7 +14,7 @@ class JunoBot():
                        +os.getenv('DBName')+';Uid='+os.getenv('DBUser')+';Pwd='+os.getenv('DBPass')
         self.logger = logging.getLogger("MyLogger")
         formatter = logging.Formatter('[%(asctime)s %(levelname)s] %(message)s', "%m/%d %H:%M:%S")
-        fh = logging.FileHandler("logs" + os.sep + "junoNFTBot_{}.log".format(self.getServerNow().strftime("%Y%m%d")))
+        fh = logging.FileHandler("logs" + os.sep + "junoBot_{}.log".format(self.getServerNow().strftime("%Y%m%d")))
         fh.setFormatter(formatter)
         self.logger.addHandler(fh)
         ch = logging.StreamHandler()
@@ -168,12 +168,14 @@ class JunoBot():
                 cur.commit()
                 newPrice=True
             elif r.timestamp<timestamp and float(r.price)!=price:
-                # update new price
+                # update new price for existing listings
                 self.logger.debug('old/new price={}/{}'.format(r.price,price))
                 cur.execute('update ldselling set price=?, timestamp=? where collection=? and tokenid=?',price, timestamp,collection, tokenid)
                 cur.commit()
                 newPrice = True
             if newPrice:
+                # Just wrote this part so haven't totally decided on how I want limit the alerts, don't want to be too spammy also may send the best
+                # deals to myself first before sending to group
                 toSend = '[{}] {}:{} selling for {} '.format(timestamp.strftime('%m/%d %H:%M'), collection, tokenid, price)
                 if collection == 'egg' or (collection == 'loot' and type == 'Meteor Dust'):
                     toSend = toSend + '({}SL/$)'.format(round(sl / price, 2))
@@ -184,7 +186,7 @@ class JunoBot():
                     or (type=='Meteor Dust' and sl/price>1.5) or (price<5)):
                     self.sendTelegram(toSend)
 
-    # download levana nft metadata from Loop market graphGL API
+    # download levana nft metadata from Loop market graphGL API.  Probably not necessary if you already have all that in your database
     def getLevanaNFTs(self,collection):
         conn = pyodbc.connect(self.connstr)
         cur = conn.cursor()
