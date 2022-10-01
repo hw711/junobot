@@ -89,7 +89,7 @@ class JunoBot():
                             if nftRow.type in ('Faction Talisman', 'Personal Dragon Atlas'):
                                 txt = '{} | {} | {} \n'.format(nftRow.type, nftRow.faction, nftRow.role)
                             elif nftRow.type == 'Meteor Dust':
-                                txt = '{} | {} | {}SL | lc={}\n'.format(nftRow.type, nftRow.rarity, round(nftRow.sl,2), nftRow.essence,nftRow.lc)
+                                txt = '{} | {} | {}SL | {} | lc={}\n'.format(nftRow.type, nftRow.rarity, round(nftRow.sl,2), nftRow.essence,nftRow.lc)
                             else:
                                 txt = 'unhandled loop type...to be implemented'
                         if events['action']=='buy':
@@ -102,7 +102,7 @@ class JunoBot():
                                             collection, events['token_id'], price, events['recipient'], timestamp, nftRow.sl,float(nftRow.sl)/price,txhash)
                                 cur.commit()
                                 toSend ='[{}] {}:{} sold for ${} '.format(timestamp.strftime('%m/%d %H:%M'),collection, events['token_id'], price)
-                                if collection == 'egg' or (collection=='loot' and type=='Meteor Dust'):
+                                if collection == 'egg' or (collection=='loot' and nftRow.type=='Meteor Dust'):
                                     toSend=toSend+'({}SL/$)'.format(round(float(nftRow.sl) / price,2))
                                 toSend = toSend + '\n' + txt
                                 self.sendGroupTelegram(toSend)
@@ -128,7 +128,14 @@ class JunoBot():
         offset=0
         query = '{nfts(orderBy: [UPDATED_AT_DESC] filter: {inSale: { equalTo: true } contractId: {equalTo: \"'+contract+'\"}}offset: '+str(offset)+',first: 100) \
             {totalCount nodes{id info metadata type tokenID updatedAt marketplacePriceAmount marketplacePriceDenom owner}}}'
-        jsonDict = json.loads(requests.post(self.loopGraphQL, json={'query': query}).text)
+        try:
+            jsonDict = json.loads(requests.post(self.loopGraphQL, json={'query': query}).text)
+        except:
+            self.logger.debug('Unable to get Loop graphQL...try again in 5 minutes')
+            time.sleep(300)
+            return self.getListings(collection)
+        latestUpdate= self.parseToServerTime(jsonDict['data']['nfts']['nodes'][0]['updatedAt'])
+        self.logger.debug('Getting listing for {}...latest update {}'.format(collection,latestUpdate))
         for node in jsonDict['data']['nfts']['nodes']:
             tokenid = node['tokenID']
             metadata = node['metadata']
@@ -149,7 +156,11 @@ class JunoBot():
             if bigPrice==None:
                 self.logger.debug('missing price for collection={} tokenid={}'.format(collection,tokenid))
                 continue
+            elif bigPrice=='0' or bigPrice==0:
+                self.logger.debug('0 price for collection={} tokenid={}'.format(collection, tokenid))
+                continue
             price=float(bigPrice)/1000000
+
             if collection == 'rider':
                 txt = '{} | {} background | {} suit \n'.format(faction, background, suit)
             elif collection == 'egg':
@@ -158,7 +169,7 @@ class JunoBot():
                 if type in ('Faction Talisman', 'Personal Dragon Atlas'):
                     txt = '{} | {} | {} \n'.format(type, faction, role)
                 elif type == 'Meteor Dust':
-                    txt = '{} | {} | {}SL | lc={}\n'.format(type, rarity, round(sl, 2), essence, lc)
+                    txt = '{} | {} | {}SL | {} | lc={}\n'.format(type, rarity, round(sl, 2), essence, lc)
                 else:
                     txt = 'unhandled loop type...to be implemented'
             cur.execute('select * from ldselling with (nolock) where collection=? and tokenid=?', collection,tokenid)
@@ -182,12 +193,13 @@ class JunoBot():
                 toSend = '[{}] {}:{} selling for {} '.format(timestamp.strftime('%m/%d %H:%M'), collection, tokenid, price)
                 if collection == 'egg' or (collection == 'loot' and type == 'Meteor Dust'):
                     toSend = toSend + '({}SL/$)'.format(round(sl / price, 2))
-                toSend = toSend + '\n' + txt
+                url='https://nft-juno.loop.markets/nftDetail/{}/{}'.format(self.levanaNFTs[collection],tokenid)
+                toSend = toSend + '\n' + txt + '\n' + url
                 self.logger.debug(toSend)
                 if ((collection=='egg' and sl/price>0.5 and price<500) or (collection=='rider' and price<10) or
                     (type in ('Faction Talisman', 'Personal Dragon Atlas') and role=='Member' and price<10)
-                    or (type=='Meteor Dust' and sl/price>1.5) or (price<5) or (collection=='rider' and suit in
-                    ('Hunter','Exoskeleton','Command','Advisor','Rangers'))):
+                    or (type=='Meteor Dust' and (sl/price>1.5 or lc is not None)) or (price<5) or (collection=='rider' and suit in
+                    ('Hunter','Exoskeleton','Command','Advisor','Rangers') and price<100)):
                     self.sendTelegram(toSend)
 
     # download levana nft metadata from Loop market graphGL API.  Probably not necessary if you already have all that in your database

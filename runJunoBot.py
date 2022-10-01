@@ -14,10 +14,9 @@ if len(sys.argv)==2:
         while(True):
             print('Check Loop Contract')
             bot.checkLoopContract()
-            time.sleep(600)
+            time.sleep(random.uniform(800,1000))
     elif sys.argv[1].lower()=='l':
         while(True):
-            print('get getListings')
             bot.getListings('rider')
             time.sleep(10)
             bot.getListings('loot')
