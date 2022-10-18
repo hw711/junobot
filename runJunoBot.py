@@ -12,9 +12,12 @@ bot=JunoBot()
 if len(sys.argv)==2:
     if sys.argv[1].lower()=='clc':
         while(True):
-            print('Check Loop Contract')
-            bot.checkLoopContract()
-            time.sleep(random.uniform(800,1000))
+            print('Check Loop Contract(BuyNow)')
+            bot.checkLoopContract(auction=False)
+            time.sleep(random.uniform(200,400))
+            print('Check Loop Contract(Auction)')
+            bot.checkLoopContract(auction=True)
+            time.sleep(random.uniform(500,700))
     elif sys.argv[1].lower()=='l':
         while(True):
             bot.getListings('rider')
@@ -25,9 +28,9 @@ if len(sys.argv)==2:
             time.sleep(60)
     elif sys.argv[1]=='n':
         print('get NFT meta data')
+        bot.getLevanaNFTs('egg')
         bot.getLevanaNFTs('rider')
         bot.getLevanaNFTs('loot')
-        bot.getLevanaNFTs('egg')
     else:
         print('bad argument')
 else:
